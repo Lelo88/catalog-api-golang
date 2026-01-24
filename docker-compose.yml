@@ -1,0 +1,27 @@
+# docker-compose para desarrollo local.
+# Mantenerlo simple: un servicio de PostgreSQL con volumen persistente.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: catalog_api_postgres
+    restart: unless-stopped
+    environment:
+      # Credenciales solo para desarrollo local.
+      POSTGRES_USER: catalog
+      POSTGRES_PASSWORD: catalog
+      POSTGRES_DB: catalog_db
+    ports:
+      # Expone Postgres en localhost:5432 para que la app Go pueda conectar después.
+      - "5432:5432"
+    volumes:
+      # Persistencia local de datos. Si borrás el volumen, se pierde la DB.
+      - catalog_api_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Permite saber si Postgres ya está listo (útil para automatizar pasos después).
+      test: ["CMD-SHELL", "pg_isready -U catalog -d catalog_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  catalog_api_pgdata:

@@ -1,0 +1,14 @@
+# Archivos de entorno local
+.env
+
+# Binarios/outputs
+*.exe
+*.out
+bin/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+.windsurf/
