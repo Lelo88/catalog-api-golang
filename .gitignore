@@ -1,5 +1,6 @@
 # Archivos de entorno local
 .env
+.env.example
 
 # Binarios/outputs
 *.exe
