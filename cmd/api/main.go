@@ -1,62 +1,59 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/Lelo88/catalog-api-golang/internal/config"
+	"github.com/Lelo88/catalog-api-golang/internal/db"
 	"github.com/Lelo88/catalog-api-golang/internal/health"
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	router := chi.NewRouter()
+	// Contexto raíz del proceso.
+	ctx := context.Background()
 
-	// Middlewares base:
-	// - RequestID: genera/propaga un ID por request para trazabilidad.
-	// - RealIP: obtiene IP real detrás de proxies (útil si deployás).
-	// - Logger: logging básico por request.
-	// - Recoverer: evita que un panic tumbe el proceso.
-	// - Timeout: corta requests colgados (evita conexiones zombis).
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.Timeout(10 * time.Second))
+	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
 
-	healthHandler := health.New()
-	router.Get("/health", healthHandler.Health)
+	r := chi.NewRouter()
 
-	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		httpx.Fail(
-			w, r,
-			http.StatusNotFound,
-			"not_found",
-			"resource not found",
-		)
+	// Middlewares base para trazabilidad y estabilidad.
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(10 * time.Second))
+
+	// Errores de routing se manejan a nivel router.
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		httpx.Fail(w, r, http.StatusNotFound, "not_found", "resource not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		httpx.Fail(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 	})
 
-	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		httpx.Fail(
-			w, r,
-			http.StatusMethodNotAllowed,
-			"method_not_allowed",
-			"method not allowed",
-		)
-	})
+	healthHandler := health.New(pool)
+	r.Get("/health", healthHandler.Health)
+	r.Get("/ready", healthHandler.Ready)
 
-	address := ":" + port
-	log.Printf("listening on %s", address)
-	if err := http.ListenAndServe(address, router); err != nil {
+	addr := ":" + cfg.Port
+	log.Printf("listening on %s", addr)
+	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
 	}
 }
