@@ -1,12 +1,21 @@
 package httpx
 
-import "net/http"
+import (
+	"net/http"
 
-// Chi guarda el request id en el header "X-Request-Id" y también lo propaga.
-// Este helper lo lee desde el request para incluirlo en las respuestas.
-func RequestIDFrom(request *http.Request) string {
-	if request == nil {
+	"github.com/go-chi/chi/v5/middleware"
+)
+
+// RequestIDFrom obtiene el ID de request generado por el middleware.
+// Primero intenta leerlo del contexto (fuente de verdad). Como fallback, lee el header.
+func RequestIDFrom(r *http.Request) string {
+	if r == nil {
 		return ""
 	}
-	return request.Header.Get("X-Request-Id")
+
+	if reqID := middleware.GetReqID(r.Context()); reqID != "" {
+		return reqID
+	}
+
+	return r.Header.Get("X-Request-Id")
 }
