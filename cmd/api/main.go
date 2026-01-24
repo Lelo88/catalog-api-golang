@@ -1,13 +1,16 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/Lelo88/catalog-api-golang/internal/health"
+	"github.com/Lelo88/catalog-api-golang/internal/httpx"
 )
 
 func main() {
@@ -16,20 +19,44 @@ func main() {
 		port = "8080"
 	}
 
-	r := chi.NewRouter()
+	router := chi.NewRouter()
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status": "ok",
-			"time":   time.Now().UTC().Format(time.RFC3339),
-		})
+	// Middlewares base:
+	// - RequestID: genera/propaga un ID por request para trazabilidad.
+	// - RealIP: obtiene IP real detrás de proxies (útil si deployás).
+	// - Logger: logging básico por request.
+	// - Recoverer: evita que un panic tumbe el proceso.
+	// - Timeout: corta requests colgados (evita conexiones zombis).
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(10 * time.Second))
+
+	healthHandler := health.New()
+	router.Get("/health", healthHandler.Health)
+
+	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		httpx.Fail(
+			w, r,
+			http.StatusNotFound,
+			"not_found",
+			"resource not found",
+		)
 	})
 
-	addr := ":" + port
-	log.Printf("listening on %s", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
+	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		httpx.Fail(
+			w, r,
+			http.StatusMethodNotAllowed,
+			"method_not_allowed",
+			"method not allowed",
+		)
+	})
+
+	address := ":" + port
+	log.Printf("listening on %s", address)
+	if err := http.ListenAndServe(address, router); err != nil {
 		log.Fatal(err)
 	}
 }
