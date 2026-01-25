@@ -14,12 +14,12 @@ var (
 
 // Service contiene reglas de negocio de items.
 type Service struct {
-	repo *Repository
+	repository *Repository
 }
 
 // NewService crea un service de items.
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repository *Repository) *Service {
+	return &Service{repository: repository}
 }
 
 // Create valida reglas y crea el item en DB.
@@ -39,7 +39,7 @@ func (service *Service) Create(context context.Context, itemInput CreateItemInpu
 	}
 
 	// Delegamos persistencia al repo.
-	item, err := service.repo.Insert(context, itemInput)
+	item, err := service.repository.Insert(context, itemInput)
 	if err != nil {
 		// Si el repo detecta duplicado, lo exponemos como error de dominio.
 		if errors.Is(err, ErrorDuplicateName) {
@@ -49,4 +49,28 @@ func (service *Service) Create(context context.Context, itemInput CreateItemInpu
 	}
 
 	return item, nil
+}
+
+func (service *Service) List(context context.Context, page, limit int, nameQuery string) ([]Item, int, error) {
+	// Validación mínima: paginación no puede ser absurda.
+	if page < 1 || limit < 1 {
+		return nil, 0, ErrorInvalidInput
+	}
+
+	// Normalizamos búsqueda.
+	nameQuery = strings.TrimSpace(nameQuery)
+
+	offset := (page - 1) * limit
+
+	items, err := service.repository.List(context, nameQuery, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := service.repository.Count(context, nameQuery)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
 }

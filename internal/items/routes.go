@@ -7,5 +7,6 @@ import "github.com/go-chi/chi/v5"
 func RegisterRoutes(route chi.Router, handler *Handler) {
 	route.Route("/items", func(route chi.Router) {
 		route.Post("/", handler.Create)
+		route.Get("/", handler.List)
 	})
 }
