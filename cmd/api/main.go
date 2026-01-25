@@ -13,47 +13,55 @@ import (
 	"github.com/Lelo88/catalog-api-golang/internal/db"
 	"github.com/Lelo88/catalog-api-golang/internal/health"
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
+	// + imports:
+	"github.com/Lelo88/catalog-api-golang/internal/items"
 )
 
 func main() {
-	cfg, err := config.Load()
+	configuration, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Contexto raíz del proceso.
-	ctx := context.Background()
+	context := context.Background()
 
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := db.NewPool(context, configuration.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer pool.Close()
 
-	r := chi.NewRouter()
+	router := chi.NewRouter()
 
 	// Middlewares base para trazabilidad y estabilidad.
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(10 * time.Second))
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(10 * time.Second))
 
 	// Errores de routing se manejan a nivel router.
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, http.StatusNotFound, "not_found", "resource not found")
 	})
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 	})
 
 	healthHandler := health.New(pool)
-	r.Get("/health", healthHandler.Health)
-	r.Get("/ready", healthHandler.Ready)
+	router.Get("/health", healthHandler.Health)
+	router.Get("/ready", healthHandler.Ready)
 
-	addr := ":" + cfg.Port
-	log.Printf("listening on %s", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
+	// Items
+	itemsRepository := items.NewRepository(pool)
+	itemsService := items.NewService(itemsRepository)
+	itemsHandler := items.NewHandler(itemsService)
+	items.RegisterRoutes(router, itemsHandler)
+
+	address := ":" + configuration.Port
+	log.Printf("listening on %s", address)
+	if err := http.ListenAndServe(address, router); err != nil {
 		log.Fatal(err)
 	}
 }
