@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // Handler HTTP para items.
@@ -118,4 +120,27 @@ func parsePagination(request *http.Request) (int, int, error) {
 	}
 
 	return page, limit, nil
+}
+
+// GetByID maneja GET /items/{id}.
+// Valida que el id sea UUID porque en DB es uuid; esto evita errores innecesarios.
+func (handler *Handler) GetByID(writer http.ResponseWriter, request *http.Request) {
+	id := chi.URLParam(request, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	item, err := handler.service.Get(request.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrorNotFound):
+			httpx.Fail(writer, request, http.StatusNotFound, "not_found", "item not found")
+		default:
+			httpx.Fail(writer, request, http.StatusInternalServerError, "internal_error", "unexpected error")
+		}
+		return
+	}
+
+	httpx.OK(writer, request, http.StatusOK, item)
 }

@@ -8,5 +8,6 @@ func RegisterRoutes(route chi.Router, handler *Handler) {
 	route.Route("/items", func(route chi.Router) {
 		route.Post("/", handler.Create)
 		route.Get("/", handler.List)
+		route.Get("/{id}", handler.GetByID)
 	})
 }
