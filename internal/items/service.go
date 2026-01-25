@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Errores de dominio (no HTTP). El handler los traduce a status codes.
 var (
 	ErrorInvalidInput  = errors.New("invalid input")
 	ErrorDuplicateName = errors.New("duplicate item name")
+	ErrorNotFound      = errors.New("item not found")
 )
 
 // Service contiene reglas de negocio de items.
@@ -73,4 +76,17 @@ func (service *Service) List(context context.Context, page, limit int, nameQuery
 	}
 
 	return items, total, nil
+}
+
+// Get obtiene un item por ID.
+// Nota: el service no valida formato UUID; eso es más de HTTP/entrada (handler).
+func (s *Service) Get(ctx context.Context, id string) (Item, error) {
+	it, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Item{}, ErrorNotFound
+		}
+		return Item{}, err
+	}
+	return it, nil
 }

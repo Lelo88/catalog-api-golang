@@ -113,3 +113,23 @@ func (repository *Repository) Count(context context.Context, nameQuery string) (
 	}
 	return total, nil
 }
+
+// GetByID busca un item por su ID (UUID).
+// Devuelve (Item, nil) si existe.
+// Devuelve (Item{}, pgx.ErrNoRows) si no existe.
+func (repository *Repository) GetByID(context context.Context, id string) (Item, error) {
+	const query = `
+		SELECT id, name, description, price::text, stock, created_at, updated_at
+		FROM items
+		WHERE id = $1;
+	`
+
+	var item Item
+	err := repository.database.QueryRow(context, query, id).
+		Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.Stock, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return Item{}, err
+	}
+
+	return item, nil
+}
