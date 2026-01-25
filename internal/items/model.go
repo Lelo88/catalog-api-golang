@@ -22,3 +22,15 @@ type CreateItemInput struct {
 	Price       string  `json:"price"`
 	Stock       int     `json:"stock"`
 }
+
+// UpdateItemInput representa el payload para actualizar un item.
+type UpdateItemInput struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Price       *string `json:"price,omitempty"`
+	Stock       *int    `json:"stock,omitempty"`
+	// DescriptionPresent indica si el cliente envió el campo "description".
+	// No se serializa, solo sirve para diferenciar "no tocar" vs "set null".
+	DescriptionPresent bool `json:"-"`
+}
+

@@ -29,8 +29,6 @@ type pagination struct {
 	Total int `json:"total"`
 }
 
-
-
 // Create maneja POST /items.
 func (handler *Handler) Create(writer http.ResponseWriter, request *http.Request) {
 	var itemInput CreateItemInput
@@ -136,6 +134,54 @@ func (handler *Handler) GetByID(writer http.ResponseWriter, request *http.Reques
 		switch {
 		case errors.Is(err, ErrorNotFound):
 			httpx.Fail(writer, request, http.StatusNotFound, "not_found", "item not found")
+		default:
+			httpx.Fail(writer, request, http.StatusInternalServerError, "internal_error", "unexpected error")
+		}
+		return
+	}
+
+	httpx.OK(writer, request, http.StatusOK, item)
+}
+
+// Patch maneja PATCH /items/{id}.
+func (handler *Handler) Patch(writer http.ResponseWriter, request *http.Request) {
+	id := chi.URLParam(request, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	// Primero leemos raw para saber qué campos vinieron.
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(request.Body).Decode(&raw); err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_json", "invalid JSON body")
+		return
+	}
+
+	// Re-encode y decode al struct para reutilizar tags y tipos.
+	byteJson, _ := json.Marshal(raw)
+
+	var itemInputUpdated UpdateItemInput
+	if err := json.Unmarshal(byteJson, &itemInputUpdated); err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_json", "invalid JSON body")
+		return
+	}
+
+	// Manejo explícito de description:
+	// - Si el cliente envió "description": null => queremos setear NULL.
+	// - Si NO envió "description" => no queremos tocar.
+	_, descPresent := raw["description"]
+	itemInputUpdated.DescriptionPresent = descPresent
+
+	item, err := handler.service.Update(request.Context(), id, itemInputUpdated)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrorInvalidInput):
+			httpx.Fail(writer, request, http.StatusBadRequest, "invalid_input", "invalid input data")
+		case errors.Is(err, ErrorNotFound):
+			httpx.Fail(writer, request, http.StatusNotFound, "not_found", "item not found")
+		case errors.Is(err, ErrorDuplicateName):
+			httpx.Fail(writer, request, http.StatusConflict, "conflict", "item name already exists")
 		default:
 			httpx.Fail(writer, request, http.StatusInternalServerError, "internal_error", "unexpected error")
 		}

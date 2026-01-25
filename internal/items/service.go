@@ -80,8 +80,8 @@ func (service *Service) List(context context.Context, page, limit int, nameQuery
 
 // Get obtiene un item por ID.
 // Nota: el service no valida formato UUID; eso es más de HTTP/entrada (handler).
-func (s *Service) Get(ctx context.Context, id string) (Item, error) {
-	it, err := s.repository.GetByID(ctx, id)
+func (service *Service) Get(ctx context.Context, id string) (Item, error) {
+	it, err := service.repository.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Item{}, ErrorNotFound
@@ -89,4 +89,48 @@ func (s *Service) Get(ctx context.Context, id string) (Item, error) {
 		return Item{}, err
 	}
 	return it, nil
+}
+
+// Update valida reglas y actualiza parcialmente un item.
+// No valida UUID, eso es responsabilidad del handler (capa HTTP).
+func (service *Service) Update(context context.Context, id string, itemInputUpdated UpdateItemInput) (Item, error) {
+	// Debe venir al menos un campo.
+	if itemInputUpdated.Name == nil && itemInputUpdated.Description == nil && itemInputUpdated.Price == nil && itemInputUpdated.Stock == nil {
+		return Item{}, ErrorInvalidInput
+	}
+
+	// Validaciones de negocio (mínimas).
+	if itemInputUpdated.Name != nil {
+		name := strings.TrimSpace(*itemInputUpdated.Name)
+		if name == "" {
+			return Item{}, ErrorInvalidInput
+		}
+		itemInputUpdated.Name = &name
+	}
+
+	if itemInputUpdated.Price != nil {
+		price := strings.TrimSpace(*itemInputUpdated.Price)
+		if price == "" {
+			return Item{}, ErrorInvalidInput
+		}
+		itemInputUpdated.Price = &price
+	}
+
+	if itemInputUpdated.Stock != nil && *itemInputUpdated.Stock < 0 {
+		return Item{}, ErrorInvalidInput
+	}
+
+	item, err := service.repository.Update(context, id, itemInputUpdated)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrorNotFound):
+			return Item{}, ErrorNotFound
+		case errors.Is(err, ErrorDuplicateName):
+			return Item{}, ErrorDuplicateName
+		default:
+			return Item{}, err
+		}
+	}
+
+	return item, nil
 }
