@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
 )
@@ -18,6 +20,14 @@ type Handler struct {
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
+
+type pagination struct {
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+	Total int `json:"total"`
+}
+
+
 
 // Create maneja POST /items.
 func (handler *Handler) Create(writer http.ResponseWriter, request *http.Request) {
@@ -42,4 +52,70 @@ func (handler *Handler) Create(writer http.ResponseWriter, request *http.Request
 	}
 
 	httpx.OK(writer, request, http.StatusCreated, item)
+}
+
+// List maneja GET /items con paginación y búsqueda.
+func (handler *Handler) List(writer http.ResponseWriter, request *http.Request) {
+	page, limit, err := parsePagination(request)
+	if err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_pagination", "invalid pagination parameters")
+		return
+	}
+
+	query := strings.TrimSpace(request.URL.Query().Get("query"))
+
+	items, total, err := handler.service.List(request.Context(), page, limit, query)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrorInvalidInput):
+			httpx.Fail(writer, request, http.StatusBadRequest, "invalid_input", "invalid input data")
+		default:
+			httpx.Fail(writer, request, http.StatusInternalServerError, "internal_error", "unexpected error")
+		}
+		return
+	}
+
+	httpx.OK(writer, request, http.StatusOK, map[string]any{
+		"items": items,
+		"pagination": pagination{
+			Page:  page,
+			Limit: limit,
+			Total: total,
+		},
+	})
+}
+
+// parsePagination parsea page y limit con defaults y límites razonables.
+func parsePagination(request *http.Request) (int, int, error) {
+	const (
+		defaultPage  = 1
+		defaultLimit = 20
+		maxLimit     = 100
+	)
+
+	query := request.URL.Query()
+
+	page := defaultPage
+	limit := defaultLimit
+
+	if value := strings.TrimSpace(query.Get("page")); value != "" {
+		pageNumber, err := strconv.Atoi(value)
+		if err != nil || pageNumber < 1 {
+			return 0, 0, err
+		}
+		page = pageNumber
+	}
+
+	if value := strings.TrimSpace(query.Get("limit")); value != "" {
+		limitNumber, err := strconv.Atoi(value)
+		if err != nil || limitNumber < 1 {
+			return 0, 0, err
+		}
+		if limitNumber > maxLimit {
+			limitNumber = maxLimit
+		}
+		limit = limitNumber
+	}
+
+	return page, limit, nil
 }
