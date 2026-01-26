@@ -210,3 +210,20 @@ func (repository *Repository) Update(context context.Context, id string, itemInp
 
 	return item, nil
 }
+
+// Delete elimina un item por ID.
+// Devuelve ErrNotFound si no existe.
+func (repository *Repository) Delete(context context.Context, id string) error {
+	const query = `DELETE FROM items WHERE id = $1 RETURNING id;`
+
+	var deletedID string
+	err := repository.database.QueryRow(context, query, id).Scan(&deletedID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrorNotFound
+		}
+		return err
+	}
+
+	return nil
+}
