@@ -190,3 +190,26 @@ func (handler *Handler) Patch(writer http.ResponseWriter, request *http.Request)
 
 	httpx.OK(writer, request, http.StatusOK, item)
 }
+
+// Delete maneja DELETE /items/{id}.
+func (handler *Handler) Delete(writer http.ResponseWriter, request *http.Request) {
+	id := chi.URLParam(request, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		httpx.Fail(writer, request, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	err := handler.service.Delete(request.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrorNotFound):
+			httpx.Fail(writer, request, http.StatusNotFound, "not_found", "item not found")
+		default:
+			httpx.Fail(writer, request, http.StatusInternalServerError, "internal_error", "unexpected error")
+		}
+		return
+	}
+
+	// 204 No Content: respuesta vacía.
+	writer.WriteHeader(http.StatusNoContent)
+}

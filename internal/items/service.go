@@ -134,3 +134,8 @@ func (service *Service) Update(context context.Context, id string, itemInputUpda
 
 	return item, nil
 }
+
+// Delete elimina un item por ID.
+func (service *Service) Delete(context context.Context, id string) error {
+	return service.repository.Delete(context, id)
+}

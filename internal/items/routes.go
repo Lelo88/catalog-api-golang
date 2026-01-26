@@ -10,5 +10,6 @@ func RegisterRoutes(route chi.Router, handler *Handler) {
 		route.Get("/", handler.List)
 		route.Get("/{id}", handler.GetByID)
 		route.Patch("/{id}", handler.Patch)
+		route.Delete("/{id}", handler.Delete)
 	})
 }
