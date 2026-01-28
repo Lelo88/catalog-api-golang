@@ -1,6 +1,7 @@
 package items
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,14 +13,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// ServiceAPI define lo que el handler necesita.
+// Permite testear handlers con stubs sin tocar DB.
+type ServiceAPI interface {
+	Create(ctx context.Context, in CreateItemInput) (Item, error)
+	List(ctx context.Context, page, limit int, query string) ([]Item, int, error)
+	Get(ctx context.Context, id string) (Item, error)
+	Update(ctx context.Context, id string, in UpdateItemInput) (Item, error)
+	Delete(ctx context.Context, id string) error
+}
+
 // Handler HTTP para items.
 // Solo traduce HTTP <-> dominio (service).
 type Handler struct {
-	service *Service
+	service ServiceAPI
 }
 
 // NewHandler crea un handler de items.
-func NewHandler(service *Service) *Handler {
+func NewHandler(service ServiceAPI) *Handler {
 	return &Handler{service: service}
 }
 
