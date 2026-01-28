@@ -3,6 +3,7 @@ package items
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -15,13 +16,24 @@ var (
 	ErrorNotFound      = errors.New("item not found")
 )
 
+// RepositoryAPI define lo que el service necesita. 
+// Permite testear handlers con stubs sin tocar DB.
+type RepositoryAPI interface {
+	Insert(ctx context.Context, in CreateItemInput) (Item, error)
+	List(ctx context.Context, query string, limit, offset int) ([]Item, error)
+	Count(ctx context.Context, query string) (int, error)
+	GetByID(ctx context.Context, id string) (Item, error)
+	Update(ctx context.Context, id string, in UpdateItemInput) (Item, error)
+	Delete(ctx context.Context, id string) error
+}
+
 // Service contiene reglas de negocio de items.
 type Service struct {
-	repository *Repository
+	repository RepositoryAPI
 }
 
 // NewService crea un service de items.
-func NewService(repository *Repository) *Service {
+func NewService(repository RepositoryAPI) *Service {
 	return &Service{repository: repository}
 }
 
@@ -29,12 +41,16 @@ func NewService(repository *Repository) *Service {
 func (service *Service) Create(context context.Context, itemInput CreateItemInput) (Item, error) {
 	// Normalización mínima.
 	itemInput.Name = strings.TrimSpace(itemInput.Name)
+	itemInput.Price = strings.TrimSpace(itemInput.Price)
 
 	// Validaciones de negocio (refuerzan constraints DB).
 	if itemInput.Name == "" {
 		return Item{}, ErrorInvalidInput
 	}
-	if strings.TrimSpace(itemInput.Price) == "" {
+	if itemInput.Price == "" {
+		return Item{}, ErrorInvalidInput
+	}
+	if !isValidPrice(itemInput.Price) {
 		return Item{}, ErrorInvalidInput
 	}
 	if itemInput.Stock < 0 {
@@ -113,6 +129,9 @@ func (service *Service) Update(context context.Context, id string, itemInputUpda
 		if price == "" {
 			return Item{}, ErrorInvalidInput
 		}
+		if !isValidPrice(price) {
+			return Item{}, ErrorInvalidInput
+		}
 		itemInputUpdated.Price = &price
 	}
 
@@ -138,4 +157,25 @@ func (service *Service) Update(context context.Context, id string, itemInputUpda
 // Delete elimina un item por ID.
 func (service *Service) Delete(context context.Context, id string) error {
 	return service.repository.Delete(context, id)
+}
+
+var pricePattern = regexp.MustCompile(`^\d+(\.\d{1,2})?$`)
+
+func isValidPrice(value string) bool {
+	price := strings.TrimSpace(value)
+	if !pricePattern.MatchString(price) {
+		return false
+	}
+	return isPositiveNonZero(price)
+}
+
+func isPositiveNonZero(price string) bool {
+	// price ya viene validado con regex: \d+(\.\d{2})?
+	// Entonces los únicos ceros posibles son "0" o "0.00" o "00.00" etc.
+	for _, ch := range price {
+		if ch >= '1' && ch <= '9' {
+			return true
+		}
+	}
+	return false
 }
