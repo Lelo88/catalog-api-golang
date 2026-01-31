@@ -8,17 +8,22 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// dbQuerier define el contrato para acceder a la base de datos.
+type dbQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
 
 // Repository accede a la tabla items.
 // Contiene SQL y mapeo DB → modelo.
 type Repository struct {
-	database *pgxpool.Pool
+	database dbQuerier
 }
 
 // NewRepository crea un repositorio de items.
-func NewRepository(database *pgxpool.Pool) *Repository {
+func NewRepository(database dbQuerier) *Repository {
 	return &Repository{database: database}
 }
 
