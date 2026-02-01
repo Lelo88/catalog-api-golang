@@ -14,8 +14,8 @@ import (
 	"github.com/Lelo88/catalog-api-golang/internal/db"
 	"github.com/Lelo88/catalog-api-golang/internal/health"
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
-	// + imports:
 	"github.com/Lelo88/catalog-api-golang/internal/items"
+	"github.com/Lelo88/catalog-api-golang/internal/docs"
 )
 
 
@@ -109,6 +109,10 @@ func buildRouter(pool appPool) http.Handler {
 	itemsService := items.NewService(itemsRepository)
 	itemsHandler := items.NewHandler(itemsService)
 	items.RegisterRoutes(router, itemsHandler)
+
+	// Docs
+	docs.RegisterRoutes(router)
+	router.Get("/openapi.yaml", docs.OpenAPIHandler())
 
 	return router
 }
