@@ -149,4 +149,22 @@ curl -X PATCH http://localhost:8080/items/{id} \
 # Eliminar item
 curl -X DELETE http://localhost:8080/items/{id}
 
+## Documentación (OpenAPI / Swagger)
+
+Este proyecto expone documentación interactiva usando **Swagger UI** y el contrato **OpenAPI**.
+
+### Abrir Swagger UI
+1. Levantar la API:
+```bash
+make run
+```
+2. Abrir en el navegador:
+```
+http://localhost:8080/docs/
+```
+
+### Ver el contrato OpenAPI
+```
+http://localhost:8080/openapi.yaml
+```
 
