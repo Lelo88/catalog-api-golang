@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Lelo88/catalog-api-golang/internal/config"
 	"github.com/Lelo88/catalog-api-golang/internal/db"
@@ -17,21 +18,71 @@ import (
 	"github.com/Lelo88/catalog-api-golang/internal/items"
 )
 
+
+type appPool interface {
+	Ping(ctx context.Context) error
+	Close()
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+type appDeps struct {
+	loadConfig      func() (config.Config, error)
+	newPool         func(ctx context.Context, url string) (appPool, error)
+	listenAndServe  func(addr string, handler http.Handler) error
+	logf            func(format string, args ...any)
+}
+
+var (
+	loadConfigFn     = config.Load
+	newPoolFn        = func(ctx context.Context, url string) (appPool, error) { return db.NewPool(ctx, url) }
+	listenAndServeFn = http.ListenAndServe
+	logfFn           = log.Printf
+	fatalf           = log.Fatal
+)
+
+// main carga dependencias reales y delega el arranque a run.
+// Si run falla, finaliza el proceso con log.Fatal.
 func main() {
-	configuration, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
+	ctx := context.Background()
+	deps := appDeps{
+		loadConfig:     loadConfigFn,
+		newPool:        newPoolFn,
+		listenAndServe: listenAndServeFn,
+		logf:           logfFn,
 	}
 
-	// Contexto raíz del proceso.
-	context := context.Background()
+	if err := run(ctx, deps); err != nil {
+		fatalf(err)
+	}
+}
 
-	pool, err := db.NewPool(context, configuration.DatabaseURL)
+// run orquesta el inicio de la app: carga config, crea pool, arma el router y arranca el servidor.
+func run(ctx context.Context, deps appDeps) error {
+	configuration, err := deps.loadConfig()
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+
+	pool, err := deps.newPool(ctx, configuration.DatabaseURL)
+	if err != nil {
+		return err
 	}
 	defer pool.Close()
 
+	router := buildRouter(pool)
+
+	address := ":" + configuration.Port
+	deps.logf("listening on %s", address)
+	if err := deps.listenAndServe(address, router); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// buildRouter construye el router HTTP con middlewares y rutas.
+func buildRouter(pool appPool) http.Handler {
 	router := chi.NewRouter()
 
 	// Middlewares base para trazabilidad y estabilidad.
@@ -59,9 +110,5 @@ func main() {
 	itemsHandler := items.NewHandler(itemsService)
 	items.RegisterRoutes(router, itemsHandler)
 
-	address := ":" + configuration.Port
-	log.Printf("listening on %s", address)
-	if err := http.ListenAndServe(address, router); err != nil {
-		log.Fatal(err)
-	}
+	return router
 }
