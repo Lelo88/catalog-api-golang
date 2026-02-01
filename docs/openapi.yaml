@@ -3,8 +3,14 @@ info:
   title: Catalog API
   version: 0.1.0
   description: API backend de catálogo (Items) con PostgreSQL, migraciones y respuestas estandarizadas.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 servers:
-  - url: http://localhost:8080
+  - url: https://api.xxxxx.com
+    description: Production (placeholder)
+
+security: []
 
 tags:
   - name: Items
@@ -26,6 +32,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /ready:
     get:
       tags: [Health]
@@ -39,9 +49,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-
   /items:
     post:
       tags: [Items]
