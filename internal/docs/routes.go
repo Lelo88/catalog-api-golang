@@ -13,7 +13,7 @@ func RegisterRoutes(r chi.Router) {
 		http.Redirect(w, req, "/docs/", http.StatusMovedPermanently)
 	})
 
-	r.Route("/docs", func(r chi.Router) {
+	r.Route("/docs/", func(r chi.Router) {
 		// Swagger UI
 		r.Get("/", SwaggerUIHandler())
 

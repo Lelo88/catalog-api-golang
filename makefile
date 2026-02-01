@@ -98,8 +98,7 @@ fmt:
 openapi-sync:
 	cp docs/openapi.yaml internal/docs/openapi.yaml
 
-```makefile
 OPENAPI_FILE ?= docs/openapi.yaml
 
 openapi-validate:
-	@docker run --rm -v "$(PWD):/work" -w /work redocly/cli lint $(OPENAPI_FILE)
+	npx -y @redocly/cli lint docs/openapi.yaml
