@@ -5,20 +5,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/Lelo88/catalog-api-golang/internal/httpx"
 )
+
+// dbPinger define lo que el handler necesita.
+type dbPinger interface {
+	Ping(ctx context.Context) error
+}
 
 // Handler expone endpoints de salud.
 // Incluye checks simples para liveness (/health) y readiness (/ready).
 type Handler struct {
-	db *pgxpool.Pool
+	db dbPinger
 }
 
 // New crea un Handler. db puede ser nil si querés correr sin base en algún entorno,
 // pero para este proyecto la DB es requerida (config.Load la exige).
-func New(db *pgxpool.Pool) *Handler {
+func New(db dbPinger) *Handler {
 	return &Handler{db: db}
 }
 
