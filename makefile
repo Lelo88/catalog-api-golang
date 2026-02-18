@@ -87,6 +87,8 @@ it: db-up migrate-up
 	go test -tags=integration $(PKG) -count=1
 
 run:
+	run:
+	@set -a; [ -f .env ] && . ./.env; set +a; \
 	go run ./cmd/api
 
 tidy:
