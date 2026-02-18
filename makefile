@@ -108,3 +108,6 @@ ci:
 	go test ./... -count=1
 	go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
 	go tool cover -func=coverage.out
+
+lint:
+	golangci-lint run ./... --timeout=5m
