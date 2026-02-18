@@ -102,3 +102,9 @@ OPENAPI_FILE ?= docs/openapi.yaml
 
 openapi-validate:
 	npx -y @redocly/cli lint docs/openapi.yaml
+
+ci:
+	diff -q docs/openapi.yaml internal/docs/openapi.yaml
+	go test ./... -count=1
+	go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+	go tool cover -func=coverage.out
