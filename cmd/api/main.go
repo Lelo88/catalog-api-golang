@@ -100,6 +100,17 @@ func buildRouter(pool appPool) http.Handler {
 		httpx.Fail(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 	})
 
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		httpx.OK(w, r, http.StatusOK, map[string]any{
+			"name":   "catalog-api-golang",
+			"status": "ok",
+			"docs":   "/docs/",
+			"health": "/health",
+			"ready":  "/ready",
+			"openapi": "/openapi.yaml",
+		})
+	})
+
 	healthHandler := health.New(pool)
 	router.Get("/health", healthHandler.Health)
 	router.Get("/ready", healthHandler.Ready)
