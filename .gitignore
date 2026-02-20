@@ -16,4 +16,5 @@ dist/
 node_modules
 
 # lock files
-*.json
+package.json
+package-lock.json
