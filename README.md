@@ -50,11 +50,10 @@ Expone endpoints HTTP para administrar un catálogo de items (crear, listar, obt
 ## Configuración
 
 ### Variables de entorno
-Se utiliza `DATABASE_URL` para conectarse a PostgreSQL.
-
-Ejemplo:
-```bash
-export DATABASE_URL="postgres://catalog:catalog@localhost:5432/catalog_db?sslmode=disable"
+- `DATABASE_URL` (**obligatoria**): string de conexión a PostgreSQL.
+- `PORT` (opcional): puerto HTTP.
+  - Local: si no seteás `PORT`, se usa el default (ej: `8080`).
+  - Render: `PORT` lo inyecta Render automáticamente.
 
 # Si usás .env, recordá exportarlo antes de correr migraciones/tests:
 set -a; source .env; set +a
@@ -171,6 +170,9 @@ http://localhost:8080/openapi.yaml
 ## Deploy (Render)
 
 Base URL (prod): https://catalog-api-golang.onrender.com
+### Root
+- `GET /`
+  - Devuelve un JSON con links útiles (docs/health/ready/openapi).
 
 ### Health
 - GET /health
@@ -179,6 +181,7 @@ Base URL (prod): https://catalog-api-golang.onrender.com
 ### Docs (Swagger / OpenAPI)
 - Swagger UI: /docs/
 - OpenAPI spec: /docs/openapi.yaml (y/o /openapi.yaml)
+- OpenAPI spec: `/openapi.yaml`
 
 ### Ejemplos de requests
 ```bash
@@ -224,3 +227,28 @@ curl -X PATCH https://catalog-api-golang.onrender.com/items/{id} \
 curl -X DELETE https://catalog-api-golang.onrender.com/items/{id}
 ```
 
+## Arquitectura
+
+La API está organizada por capas para separar responsabilidades y facilitar testing/mantenimiento:
+
+- **Router (chi)**: define rutas y middlewares (RequestID, Logger, Recoverer, Timeout).
+- **Handlers (HTTP)**: reciben requests, parsean/validan inputs, llaman a la capa de servicio y devuelven respuestas estándar.
+- **Service (negocio)**: aplica reglas de negocio y orquesta operaciones. No conoce HTTP ni SQL.
+- **Repository (persistencia)**: encapsula consultas a PostgreSQL (pgx) y mapea resultados.
+- **Infra (db/config/httpx)**: pool de DB, carga de configuración (`DATABASE_URL`, `PORT`) y helpers de respuesta/errores.
+- **Docs**: Swagger UI + OpenAPI servidos desde la app.
+
+### Flujo
+Request → Router → Handler → Service → Repository → PostgreSQL → Response (`httpx`)
+
+## Decisiones técnicas
+
+- **UUID como ID**: evita dependencia en secuencias de DB y es cómodo para ambientes distribuidos.
+- **`DATABASE_URL` obligatoria**: falla rápido si falta config crítica, evitando “arranca pero no sirve”.
+- **`PORT` por env var**: compatible con plataformas como Render (el puerto lo define la plataforma).
+- **Precio validado como string**: se valida formato y valor > 0 evitando problemas típicos de floats.
+- **PATCH parcial**: permite actualizar campos puntuales sin reemplazar el recurso completo.
+- **Respuestas estandarizadas (`httpx`)**: formato consistente para éxito/errores, más simple para clientes y tests.
+- **Readiness real (`/ready`)**: valida conectividad a DB (no solo “estoy vivo”).
+- **Tests con `testify`**: assertions más legibles y mejor cobertura (service/repository/handler/routes/utilidades).
+- **Swagger/OpenAPI versionado**: documentación reproducible y verificable (lint/validate en Makefile/CI).
