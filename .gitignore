@@ -1,0 +1,20 @@
+# Archivos de entorno local
+.env
+.env.example
+
+# Binarios/outputs
+*.exe
+*.out
+bin/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+.windsurf/
+node_modules
+
+# lock files
+package.json
+package-lock.json
