@@ -168,3 +168,59 @@ http://localhost:8080/docs/
 http://localhost:8080/openapi.yaml
 ```
 
+## Deploy (Render)
+
+Base URL (prod): https://catalog-api-golang.onrender.com
+
+### Health
+- GET /health
+- GET /ready
+
+### Docs (Swagger / OpenAPI)
+- Swagger UI: /docs/
+- OpenAPI spec: /docs/openapi.yaml (y/o /openapi.yaml)
+
+### Ejemplos de requests
+```bash
+curl -i https://catalog-api-golang.onrender.com/health
+curl -i https://catalog-api-golang.onrender.com/ready
+```
+
+### Ejemplos de uso
+
+1. Crear item
+```bash
+curl -X POST https://catalog-api-golang.onrender.com/items \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Product","price":"1000.00","stock":2}'
+```
+
+2. Listar items
+```bash
+curl -i https://catalog-api-golang.onrender.com/items
+```
+
+3. Obtener item por ID
+```bash
+curl https://catalog-api-golang.onrender.com/items/{id}
+```
+
+4. Actualizar item parcialmente
+```bash
+curl -X PATCH https://catalog-api-golang.onrender.com/items/{id} \
+  -H 'Content-Type: application/json' \
+  -d '{"stock": 10}'
+```
+
+5. Actualizar a null
+```bash
+curl -X PATCH https://catalog-api-golang.onrender.com/items/{id} \
+  -H 'Content-Type: application/json' \
+  -d '{"description": null}'
+```
+
+6. Eliminar item
+```bash
+curl -X DELETE https://catalog-api-golang.onrender.com/items/{id}
+```
+
